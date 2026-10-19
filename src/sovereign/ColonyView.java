@@ -10,13 +10,22 @@ final class ColonyView {
     }
 
     static void show(SovereignWindow w, SovereignWindow.Card c, MarketAPI m) {
+        head(c, m);
+        body(w, c, m);
+    }
+
+    static void head(SovereignWindow.Card c, MarketAPI m) {
+        SovereignKnowledge.Dossier d = SovereignKnowledge.dossier(m);
+        c.tm.addPara(d.name, m.getFaction() == null ? Theme.text() : m.getFaction().getBaseUIColor(), 6f);
+        c.tm.addPara(d.faction + ", " + d.source, Theme.dim(), 2f);
+    }
+
+    static void body(SovereignWindow w, SovereignWindow.Card c, MarketAPI m) {
         TooltipMakerAPI tm = c.tm;
         SovereignKnowledge.Dossier d = SovereignKnowledge.dossier(m);
-        tm.addPara(d.name, m.getFaction() == null ? Theme.text() : m.getFaction().getBaseUIColor(), 6f);
-        tm.addPara(d.faction + ", " + d.source, Theme.dim(), 2f);
         w.facts(tm, c.rowWidth(),
                 new String[]{"System", "Size", "Stability", "Income", "Defense"},
-                new String[]{d.system, d.size, d.stability, d.income, d.defense}, null, 8f);
+                new String[]{d.system, d.size, d.stability, d.income, d.defense}, null, 10f);
         tm.addPara("Industries", Theme.dim(), 8f);
         tm.addPara(d.industries, Theme.text(), 2f);
         tm.addPara("Conditions", Theme.dim(), 8f);

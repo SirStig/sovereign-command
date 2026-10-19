@@ -244,6 +244,7 @@ public final class SovereignKnowledge {
                 s.hidden++;
             }
         }
+        s.value = Math.max(0f, s.value);
         return s;
     }
 

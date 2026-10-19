@@ -196,7 +196,7 @@ final class FactionsTab extends TabView {
                 income += Math.max(0f, m.getIndustryIncome() + m.getExportIncome(false));
             }
             values = new String[]{String.valueOf(colonies), String.valueOf(totalSize), SovereignKnowledge.credits(income), defense};
-            labels = new String[]{"Colonies", "Total size", "Income per month", "Defense"};
+            labels = new String[]{"Colonies", "Total size", "Income a month", "Defense"};
         }
         float tileW = Math.min(120f, tw / 4f);
         for (int i = 0; i < 4; i++) {
@@ -218,7 +218,7 @@ final class FactionsTab extends TabView {
     // ---- diplomacy --------------------------------------------------------------------------------------
 
     private void buildDiplomacy(CustomPanelAPI body, FactionAPI f, float x, float y, float cw, float ch) {
-        SovereignWindow.Card c = w.card(body, x, y, cw, ch, "Diplomacy");
+        SovereignWindow.Card c = w.card(body, x, y, cw, ch, isSelf(f) ? "Alliance" : "Diplomacy");
         float bw = c.rowWidth();
         TooltipMakerAPI tm = c.tm;
         FactionAPI player = Global.getSector().getPlayerFaction();
@@ -400,7 +400,7 @@ final class FactionsTab extends TabView {
             w.done(c);
             return;
         }
-        ColonyView.show(w, c, m);
+        ColonyView.head(c, m);
         float bw = c.rowWidth();
         float half = (bw - 6f) / 2f;
         if (SovereignState.isPlayerMarket(m)) {
@@ -426,6 +426,7 @@ final class FactionsTab extends TabView {
             w.button(tm, m.isFreePort() ? "Close free port" : "Open free port", "freeport", half, 24f, 8f, true);
             w.tip(tm, "Banned goods can be sold here.");
             w.button(tm, "Send task force", "send", half, 24f, 6f, true);
+            ColonyView.body(w, c, m);
         } else {
             SovereignKnowledge.Dossier d = SovereignKnowledge.dossier(m);
             if (d.level != SovereignKnowledge.Level.FULL) {
@@ -440,6 +441,7 @@ final class FactionsTab extends TabView {
             }
             w.button(tm, "Plan operation", "plan", half, 24f, 8f, true);
             w.button(tm, "Send task force", "send", half, 24f, 6f, true);
+            ColonyView.body(w, c, m);
         }
         w.done(c);
     }
@@ -453,7 +455,8 @@ final class FactionsTab extends TabView {
         FactionAPI f = faction();
         if (id.startsWith("fac:")) {
             factionId = id.substring(4);
-            w.targetId = null;
+            List<MarketAPI> own = colonies(faction());
+            w.targetId = own.isEmpty() ? null : own.get(0).getId();
             return true;
         }
         if (id.startsWith("mkt:")) {

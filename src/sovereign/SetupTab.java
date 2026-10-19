@@ -22,14 +22,15 @@ final class SetupTab extends TabView {
     @Override
     void build(CustomPanelAPI body, float bw, float bh) {
         float cw = Math.min(680f, bw - 40f);
-        float ch = Math.min(bh - 10f, page == 2 ? 500f : 400f);
+        float[] heights = {250f, 330f, 430f, 230f};
+        float ch = Math.min(bh - 10f, heights[page]);
         SovereignWindow.Card c = w.card(body, (bw - cw) / 2f, 8f, cw, ch, null);
         TooltipMakerAPI tm = c.tm;
         float rw = c.rowWidth();
         tm.setTitleOrbitronLarge();
         if (page == 0) {
             tm.addTitle("Sovereign Command", Theme.bright());
-            tm.addPara("A control panel for Nexerelin. Factions, fleets, task forces and colonies in one window, "
+            tm.addPara("A control panel for Nexerelin. Factions, fleets and your colonies in one window, "
                     + "instead of digging through the Special functions menus.", Theme.text(), 16f);
             tm.addPara("Out of the box it only shows and does what Nexerelin already does. "
                     + "It doesn't change how the game plays.", Theme.text(), 12f);

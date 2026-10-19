@@ -1,0 +1,11 @@
+{
+  "hotkey": 66,
+  "fogOfWar": true,
+  "closedBorders": true,
+  "borderNotices": true,
+  "investigateCost": 15000,
+  "forceRatio": 0.75,
+  "relationPenalty": 0.10,
+  "warOnForcedEntry": false,
+  "emptyDefensePerMarketSize": 30
+}

@@ -1,0 +1,2 @@
+name,id,type,tags,activationDays,activationCooldown,durationDays,deactivationDays,deactivationCooldown,unlockedAtStart,defaultForAIFleet,musicSuppression,uiOn,uiOff,uiLoop,worldOn,worldOff,worldLoop,icon,plugin,ai,desc,sortOrder
+Sovereign Command,sovereign_command,DURATION,,0,0,0,0,0,TRUE,FALSE,,ui_sensor_burst_on,,,,,,graphics/icons/abilities/sensor_burst.png,sovereign.SovereignAbility,,Opens the command window.,120

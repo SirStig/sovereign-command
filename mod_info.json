@@ -1,0 +1,20 @@
+{
+  "id": "sovereigncommand",
+  "name": "Sovereign Command",
+  "author": "jkac",
+  "version": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
+  "description": "Command window for Nexerelin campaigns: diplomacy, fleets, colonies and border law.",
+  "gameVersion": "0.98a-RC8",
+  "totalConversion": false,
+  "jars": ["jars/SovereignCommand.jar"],
+  "dependencies": [
+    {"id": "lw_lazylib", "name": "LazyLib"},
+    {"id": "MagicLib", "name": "MagicLib"},
+    {"id": "nexerelin", "name": "Nexerelin"}
+  ],
+  "modPlugin": "sovereign.SovereignModPlugin"
+}

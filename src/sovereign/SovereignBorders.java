@@ -40,7 +40,7 @@ public final class SovereignBorders {
         try {
             rememberWhereThePlayerHasBeen();
             clearStaleVisits();
-            if (!SovereignSettings.closedBorders()) {
+            if (!SovereignSettings.laws() || !SovereignSettings.closedBorders() && !SovereignSettings.customs()) {
                 return;
             }
             for (StarSystemAPI system : Global.getSector().getStarSystems()) {
@@ -181,7 +181,7 @@ public final class SovereignBorders {
             customs(fleet, system, faction);
             return;
         }
-        if (isStory(fleet)) {
+        if (isStory(fleet) || !SovereignSettings.closedBorders()) {
             return;
         }
         boolean hostile = fleet.isHostileTo(Global.getSector().getPlayerFleet())

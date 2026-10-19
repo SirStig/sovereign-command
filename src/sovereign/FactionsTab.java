@@ -200,7 +200,10 @@ final class FactionsTab extends TabView {
             w.done(c);
             return;
         }
-        if (player.isHostileTo(f)) {
+        if (!SovereignSettings.diplomacy()) {
+            w.button(tm, "Diplomacy profile", "profile", bw, 24f, 6f, true);
+            w.tip(tm, "Nexerelin's own page for this faction");
+        } else if (player.isHostileTo(f)) {
             String talks = SovereignDiplomacy.talksBlock(f);
             w.confirm(tm, "Negotiate peace", "talks", bw, 24f, 6f, talks == null);
             w.tip(tm, talks == null ? "Terms depend on how the war stands" : talks);
@@ -401,6 +404,21 @@ final class FactionsTab extends TabView {
         }
         if (id.startsWith("mkt:")) {
             w.targetId = id.substring(4);
+            return true;
+        }
+        if ("profile".equals(id)) {
+            final com.fs.starfarer.api.campaign.comm.IntelInfoPlugin profile =
+                    exerelin.campaign.DiplomacyManager.getManager().getDiplomacyProfile(f.getId());
+            if (profile == null) {
+                w.say("No profile for that faction.", false);
+                return true;
+            }
+            w.closeThen(new Runnable() {
+                @Override
+                public void run() {
+                    Global.getSector().getCampaignUI().showCoreUITab(com.fs.starfarer.api.campaign.CoreUITabId.INTEL, profile);
+                }
+            });
             return true;
         }
         if ("gift".equals(id)) {

@@ -1,6 +1,6 @@
 {
   "hotkey": 66,
-  "fogOfWar": true,
+  "fogOfWar": false,
   "closedBorders": true,
   "borderNotices": true,
   "investigateCost": 15000,

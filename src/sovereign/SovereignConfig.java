@@ -42,7 +42,7 @@ public final class SovereignConfig {
     }
 
     private static SovereignConfig defaults() {
-        return new SovereignConfig(Keyboard.KEY_F8, true, true, true, 15000, 0.75f, 0.10f, false, 30f);
+        return new SovereignConfig(Keyboard.KEY_F8, false, true, true, 15000, 0.75f, 0.10f, false, 30f);
     }
 
     private static SovereignConfig load() {

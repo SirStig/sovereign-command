@@ -79,6 +79,7 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
     private final List<Bound> bound = new ArrayList<Bound>();
     private final Set<String> queue = new LinkedHashSet<String>();
     private final RootPlugin rootPlugin = new RootPlugin();
+    private final SetupTab setup;
 
     final float width;
     final float height;
@@ -114,6 +115,7 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         tabs.put(TabId.LAWS, new LawsTab(this));
         tabs.put(TabId.LOG, new LogTab(this));
         tabs.put(TabId.SETTINGS, new SettingsTab(this));
+        setup = new SetupTab(this);
     }
 
     // ---- delegate -------------------------------------------------------------------------------------------
@@ -201,7 +203,33 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         }
     }
 
+    private List<TabId> visibleTabs() {
+        List<TabId> list = new ArrayList<TabId>();
+        for (TabId id : TabId.values()) {
+            if (id != TabId.LAWS || SovereignSettings.laws()) {
+                list.add(id);
+            }
+        }
+        return list;
+    }
+
+    boolean inSetup() {
+        return !SovereignSettings.setupDone();
+    }
+
+    void restartSetup() {
+        setup.restart();
+        SovereignSettings.setSetupDone(false);
+        dirty = true;
+    }
+
     TabView tab() {
+        if (inSetup()) {
+            return setup;
+        }
+        if (!visibleTabs().contains(current)) {
+            current = TabId.FACTIONS;
+        }
         return tabs.get(current);
     }
 
@@ -252,8 +280,11 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
             bound.clear();
             content = root.createCustomPanel(width, height, new Box(this));
             buildHeader();
-            buildTabStrip();
-            float bodyY = PAD + HEADER + 8f + TABS + 8f;
+            float bodyY = PAD + HEADER + 8f;
+            if (!inSetup()) {
+                buildTabStrip();
+                bodyY += TABS + 8f;
+            }
             float bodyW = width - 2f * PAD;
             float bodyH = height - bodyY - FOOT - PAD;
             CustomPanelAPI body = content.createCustomPanel(bodyW, bodyH, new Box(this));
@@ -294,15 +325,15 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
     }
 
     private void buildTabStrip() {
-        TabId[] ids = TabId.values();
-        float tabW = Math.min(150f, (width - 2f * PAD) / ids.length - 4f);
-        for (int i = 0; i < ids.length; i++) {
+        List<TabId> ids = visibleTabs();
+        float tabW = Math.min(150f, (width - 2f * PAD) / ids.size() - 4f);
+        for (int i = 0; i < ids.size(); i++) {
             TooltipMakerAPI tm = content.createUIElement(tabW, TABS, false);
-            boolean active = ids[i] == current;
-            ButtonAPI b = tm.addAreaCheckbox(ids[i].title, "tab:" + ids[i].name(),
+            boolean active = ids.get(i) == current;
+            ButtonAPI b = tm.addAreaCheckbox(ids.get(i).title, "tab:" + ids.get(i).name(),
                     Theme.base(), Theme.dark(), Theme.bright(), tabW, TABS - 2f, 0f);
             b.setChecked(active);
-            bound.add(new Bound(b, "tab:" + ids[i].name(), active));
+            bound.add(new Bound(b, "tab:" + ids.get(i).name(), active));
             content.addUIElement(tm).inTL(PAD + i * (tabW + 4f), PAD + HEADER + 8f);
         }
     }
@@ -429,6 +460,19 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         chip(b, on ? onText : offText, id, on, 90f, 24f, 0f, true);
         row.addUIElement(b).inTL(rw - 90f, 0f);
         c.tm.addCustom(row, 4f);
+    }
+
+    void buttonPair(Card c, String textA, String idA, String textB, String idB, boolean enabledB) {
+        float rw = c.rowWidth();
+        float half = (rw - 6f) / 2f;
+        CustomPanelAPI row = c.panel.createCustomPanel(rw, 30f, new Box(this));
+        TooltipMakerAPI a = row.createUIElement(half, 28f, false);
+        button(a, textA, idA, half, 26f, 0f, true);
+        row.addUIElement(a).inTL(0f, 0f);
+        TooltipMakerAPI b = row.createUIElement(half, 28f, false);
+        confirm(b, textB, idB, half, 26f, 0f, enabledB);
+        row.addUIElement(b).inTL(half + 6f, 0f);
+        c.tm.addCustom(row, 10f);
     }
 
     void choiceRow(Card c, String label, String id, String value, String hint) {

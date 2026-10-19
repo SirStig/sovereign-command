@@ -147,6 +147,31 @@ public final class SovereignSettings {
         map().put("sys_" + systemId, (float) (value % 3));
     }
 
+    // optional modules, all off until the player picks them in setup
+    public static boolean diplomacy() {
+        return flag("mod_diplomacy", false);
+    }
+
+    public static void setDiplomacy(boolean on) {
+        map().put("mod_diplomacy", on);
+    }
+
+    public static boolean laws() {
+        return flag("mod_laws", false);
+    }
+
+    public static void setLaws(boolean on) {
+        map().put("mod_laws", on);
+    }
+
+    public static boolean setupDone() {
+        return flag("setup_done", false);
+    }
+
+    public static void setSetupDone(boolean done) {
+        map().put("setup_done", done);
+    }
+
     public static void reset() {
         map().clear();
     }

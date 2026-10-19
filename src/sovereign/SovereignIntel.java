@@ -56,8 +56,10 @@ public class SovereignIntel extends BaseIntelPlugin {
     @Override
     public void createSmallDescription(TooltipMakerAPI info, float width, float height) {
         float pad = 8f;
-        info.addPara("Closed borders: %s", pad, Misc.getHighlightColor(),
-                SovereignSettings.closedBorders() ? "on" : "off");
+        if (SovereignSettings.laws()) {
+            info.addPara("Closed borders: %s", pad, Misc.getHighlightColor(),
+                    SovereignSettings.closedBorders() ? "on" : "off");
+        }
         addGenericButton(info, width, "Open", BUTTON_OPEN);
     }
 

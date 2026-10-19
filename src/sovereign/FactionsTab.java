@@ -89,14 +89,24 @@ final class FactionsTab extends TabView {
     private void buildList(CustomPanelAPI body, float x, float y, float cw, float ch) {
         List<FactionAPI> factions = listedFactions();
         SovereignWindow.Card c = w.card(body, x, y, cw, ch, "Factions");
+        FactionAPI me = Global.getSector().getPlayerFaction();
         if (factions.isEmpty()) {
             w.empty(c.tm, "No factions", null);
         }
+        String group = "";
         for (FactionAPI f : factions) {
             boolean self = isSelf(f);
-            String rel = self ? "You" : SovereignKnowledge.relationWords(f);
-            Color relColor = self ? Theme.hl() : Theme.relation(Global.getSector().getPlayerFaction().getRelationship(f.getId()));
-            w.listRow(c, "fac:" + f.getId(), f.getDisplayName(), null, rel, relColor,
+            boolean war = !self && me.isHostileTo(f);
+            String g = self ? "" : war ? "At war" : "Others";
+            if (!g.equals(group)) {
+                group = g;
+                if (!g.isEmpty()) {
+                    c.tm.addPara(g, Theme.dim(), 10f);
+                }
+            }
+            String tag = self ? "You" : war ? "At war" : SovereignKnowledge.relationWords(f);
+            Color tagColor = self ? Theme.hl() : war ? Theme.bad() : Theme.relation(me.getRelationship(f.getId()));
+            w.listRow(c, "fac:" + f.getId(), f.getDisplayName(), null, tag, tagColor,
                     f.getId().equals(faction().getId()), f.getBaseUIColor(), f.getDarkUIColor());
         }
         w.done(c);
@@ -126,6 +136,12 @@ final class FactionsTab extends TabView {
                 if (ap != bp) {
                     return ap ? -1 : 1;
                 }
+                FactionAPI me = Global.getSector().getPlayerFaction();
+                boolean aw = me.isHostileTo(a);
+                boolean bw = me.isHostileTo(b);
+                if (aw != bw) {
+                    return aw ? -1 : 1;
+                }
                 return a.getDisplayName().compareToIgnoreCase(b.getDisplayName());
             }
         });
@@ -153,12 +169,15 @@ final class FactionsTab extends TabView {
         tm.addTitle(f.getDisplayName(), f.getBaseUIColor());
         boolean self = isSelf(f);
         if (self) {
-            tm.addPara("Your faction", Theme.hl(), 3f);
+            FactionAPI commission = Misc.getCommissionFaction();
+            tm.addPara(commission == null ? "Your faction" : "Your faction, commissioned by " + commission.getDisplayName(),
+                    Theme.hl(), 3f);
         } else {
             float rel = Global.getSector().getPlayerFaction().getRelationship(f.getId());
             int pts = SovereignKnowledge.relationPoints(f);
-            tm.addPara(SovereignKnowledge.relationWords(f) + "  " + (pts > 0 ? "+" : "") + pts,
-                    Theme.relation(rel), 3f);
+            boolean war = Global.getSector().getPlayerFaction().isHostileTo(f);
+            String words = SovereignKnowledge.relationWords(f) + "  " + (pts > 0 ? "+" : "") + pts;
+            tm.addPara(war ? "At war  (" + words + ")" : words, war ? Theme.bad() : Theme.relation(rel), 3f);
         }
         int colonies = Misc.getFactionMarkets(f).size();
         int totalSize = 0;
@@ -171,11 +190,19 @@ final class FactionsTab extends TabView {
         int wars = SovereignKnowledge.warsOf(f).size();
         String[] values = {String.valueOf(colonies), String.valueOf(totalSize), defense, String.valueOf(wars)};
         String[] labels = {"Colonies", "Total size", "Defense", "Wars"};
+        if (self) {
+            float income = 0f;
+            for (MarketAPI m : Misc.getFactionMarkets(f)) {
+                income += Math.max(0f, m.getIndustryIncome() + m.getExportIncome(false));
+            }
+            values = new String[]{String.valueOf(colonies), String.valueOf(totalSize), SovereignKnowledge.credits(income), defense};
+            labels = new String[]{"Colonies", "Total size", "Income per month", "Defense"};
+        }
         float tileW = Math.min(120f, tw / 4f);
         for (int i = 0; i < 4; i++) {
             TooltipMakerAPI tile = panel.createUIElement(tileW, 40f, false);
             tile.setParaFontOrbitron();
-            tile.addPara(values[i], i == 3 && wars > 0 ? Theme.bad() : Theme.bright(), 0f);
+            tile.addPara(values[i], !self && i == 3 && wars > 0 ? Theme.bad() : Theme.bright(), 0f);
             tile.setParaFontDefault();
             tile.addPara(labels[i], Theme.dim(), 2f);
             panel.addUIElement(tile).inTL(imgW + 18f + i * tileW, 50f);
@@ -196,8 +223,7 @@ final class FactionsTab extends TabView {
         TooltipMakerAPI tm = c.tm;
         FactionAPI player = Global.getSector().getPlayerFaction();
         if (isSelf(f)) {
-            w.empty(tm, "Your own faction", null);
-            w.done(c);
+            buildAlliance(c);
             return;
         }
         if (!SovereignSettings.diplomacy()) {
@@ -223,6 +249,21 @@ final class FactionsTab extends TabView {
         SovereignActions.AllianceMove move = SovereignActions.allianceMove(f);
         w.button(tm, move.label, "alliance", bw, 24f, 8f, move.allowed);
         w.tip(tm, move.allowed ? move.hint : move.reason);
+        w.done(c);
+    }
+
+    private void buildAlliance(SovereignWindow.Card c) {
+        TooltipMakerAPI tm = c.tm;
+        FactionAPI player = Global.getSector().getPlayerFaction();
+        exerelin.campaign.alliances.Alliance alliance = SovereignKnowledge.allianceOf(player);
+        if (alliance == null) {
+            tm.addPara("Not in an alliance", Theme.dim(), 8f);
+        } else {
+            tm.addPara(alliance.getName(), Theme.bright(), 8f);
+            List<FactionAPI> members = SovereignKnowledge.alliesOf(player);
+            tm.addPara(members.isEmpty() ? "No other members" : names(members), Theme.text(), 4f);
+            w.button(tm, "Leave alliance", "leave", c.rowWidth(), 24f, 12f, true);
+        }
         w.done(c);
     }
 
@@ -296,15 +337,15 @@ final class FactionsTab extends TabView {
         } else {
             tm.addPara(names(wars), Theme.bad(), 2f);
         }
-        List<FactionAPI> allies = SovereignKnowledge.alliesOf(f);
-        exerelin.campaign.alliances.Alliance alliance = SovereignKnowledge.allianceOf(f);
-        tm.addPara(alliance == null ? "Alliance" : "Alliance: " + alliance.getName(), Theme.dim(), 8f);
-        if (allies.isEmpty()) {
-            tm.addPara(alliance == null ? "None" : "No other members", Theme.text(), 2f);
-        } else {
-            tm.addPara(names(allies), Theme.good(), 2f);
-        }
         if (!isSelf(f)) {
+            List<FactionAPI> allies = SovereignKnowledge.alliesOf(f);
+            exerelin.campaign.alliances.Alliance alliance = SovereignKnowledge.allianceOf(f);
+            tm.addPara(alliance == null ? "Alliance" : "Alliance: " + alliance.getName(), Theme.dim(), 8f);
+            if (allies.isEmpty()) {
+                tm.addPara(alliance == null ? "None" : "No other members", Theme.text(), 2f);
+            } else {
+                tm.addPara(names(allies), Theme.good(), 2f);
+            }
             float wear = SovereignKnowledge.weariness(f);
             tm.addPara("War weariness", Theme.dim(), 8f);
             tm.addPara(Math.round(wear / 100f) + "%", wear > 0 ? Theme.hl() : Theme.text(), 2f);
@@ -359,34 +400,47 @@ final class FactionsTab extends TabView {
             w.done(c);
             return;
         }
-        SovereignKnowledge.Dossier d = SovereignKnowledge.dossier(m);
-        tm.addPara(d.name, m.getFaction() == null ? Theme.text() : m.getFaction().getBaseUIColor(), 6f);
-        tm.addPara(d.faction + "  /  " + d.source, Theme.dim(), 2f);
-        float fw = c.rowWidth();
-        w.facts(tm, fw,
-                new String[]{"System", "Size", "Stability", "Income", "Defense"},
-                new String[]{d.system, d.size, d.stability, d.income, d.defense},
-                null, 8f);
-        tm.addPara("Industries", Theme.dim(), 8f);
-        tm.addPara(d.industries, Theme.text(), 2f);
-        tm.addPara("Conditions", Theme.dim(), 8f);
-        tm.addPara(d.conditions, Theme.text(), 2f);
-
+        ColonyView.show(w, c, m);
         float bw = c.rowWidth();
-        boolean pending = m.getStarSystem() != null && SovereignState.isPending(m.getStarSystem().getId());
-        if (d.level != SovereignKnowledge.Level.FULL) {
-            if (pending) {
-                tm.addPara("Inquiry under way", Theme.hl(), 10f);
-            } else {
-                int cost = SovereignSettings.investigateCost();
-                w.button(tm, "Investigate  " + SovereignKnowledge.credits(cost), "investigate", bw, 24f, 10f, true);
-                w.tip(tm, "Sends a small fleet to look the system over");
-            }
-        }
-        boolean foreign = !SovereignState.isPlayerMarket(m);
         float half = (bw - 6f) / 2f;
-        w.button(tm, "Plan operation", "plan", half, 24f, 8f, foreign);
-        w.button(tm, "Send task force", "send", half, 24f, 6f, true);
+        if (SovereignState.isPlayerMarket(m)) {
+            boolean reinforced = ColonyOrders.reinforced(m);
+            tm.addPara("Reinforced defenses: " + (reinforced ? "in effect" : "not in effect"), reinforced ? Theme.good() : Theme.dim(), 10f);
+            com.fs.starfarer.api.campaign.CargoAPI cargo = Global.getSector().getPlayerFleet().getCargo();
+            String[] keys = new String[ColonyOrders.GOODS.length + 1];
+            String[] vals = new String[keys.length];
+            Color[] cols = new Color[keys.length];
+            keys[0] = "Credits";
+            vals[0] = SovereignKnowledge.credits(ColonyOrders.credits(m));
+            cols[0] = cargo.getCredits().get() >= ColonyOrders.credits(m) ? null : Theme.bad();
+            for (int i = 0; i < ColonyOrders.GOODS.length; i++) {
+                keys[i + 1] = Global.getSettings().getCommoditySpec(ColonyOrders.GOODS[i]).getName();
+                float have = cargo.getCommodityQuantity(ColonyOrders.GOODS[i]);
+                vals[i + 1] = ColonyOrders.need(m, i) + " (" + Math.round(have) + ")";
+                cols[i + 1] = have >= ColonyOrders.need(m, i) ? null : Theme.bad();
+            }
+            w.facts(tm, bw, keys, vals, cols, 4f);
+            w.confirm(tm, reinforced ? "Extend reinforcement" : "Reinforce defenses", "reinforce", bw, 26f, 8f,
+                    ColonyOrders.affordable(m));
+            w.tip(tm, "Paid from your fleet's cargo and wallet. Lasts 60 days.");
+            w.button(tm, m.isFreePort() ? "Close free port" : "Open free port", "freeport", half, 24f, 8f, true);
+            w.tip(tm, "Banned goods can be sold here.");
+            w.button(tm, "Send task force", "send", half, 24f, 6f, true);
+        } else {
+            SovereignKnowledge.Dossier d = SovereignKnowledge.dossier(m);
+            if (d.level != SovereignKnowledge.Level.FULL) {
+                boolean pending = m.getStarSystem() != null && SovereignState.isPending(m.getStarSystem().getId());
+                if (pending) {
+                    tm.addPara("Survey party under way", Theme.hl(), 10f);
+                } else {
+                    w.button(tm, "Survey  " + SovereignKnowledge.credits(SovereignSettings.investigateCost()),
+                            "investigate", bw, 24f, 10f, true);
+                    w.tip(tm, "Sends a small fleet to look the system over");
+                }
+            }
+            w.button(tm, "Plan operation", "plan", half, 24f, 8f, true);
+            w.button(tm, "Send task force", "send", half, 24f, 6f, true);
+        }
         w.done(c);
     }
 
@@ -479,11 +533,25 @@ final class FactionsTab extends TabView {
             return true;
         }
         if ("plan".equals(id)) {
-            w.show(SovereignWindow.TabId.OPERATIONS);
+            w.fleets().showRequest();
+            w.show(SovereignWindow.TabId.FLEETS);
             return true;
         }
         if ("send".equals(id)) {
-            w.show(SovereignWindow.TabId.FORCES);
+            w.fleets().showOrders();
+            w.show(SovereignWindow.TabId.FLEETS);
+            return true;
+        }
+        if ("reinforce".equals(id) && w.target() != null) {
+            report(ColonyOrders.reinforce(w.target()));
+            return true;
+        }
+        if ("freeport".equals(id) && w.target() != null) {
+            report(ColonyOrders.toggleFreePort(w.target()));
+            return true;
+        }
+        if ("leave".equals(id)) {
+            report(SovereignActions.leaveOwnAlliance());
             return true;
         }
         armed = wasArmed;

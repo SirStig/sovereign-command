@@ -313,6 +313,26 @@ public final class SovereignActions {
         }
     }
 
+    public static Outcome leaveOwnAlliance() {
+        try {
+            String pid = PlayerFactionStore.getPlayerFactionId();
+            Alliance mine = AllianceManager.getManager() == null ? null : AllianceManager.getFactionAlliance(pid);
+            if (mine == null) {
+                return no("You are not in an alliance.");
+            }
+            if (!Nex_IsFactionRuler.isRuler(pid)) {
+                return no("Rulers only.");
+            }
+            String name = mine.getName();
+            AllianceManager.leaveAlliance(pid, false);
+            String text = "You left " + name + ".";
+            SovereignLog.add(SovereignLog.DIPLOMACY, text);
+            return ok(text);
+        } catch (Exception ex) {
+            return failed("Could not leave the alliance", ex);
+        }
+    }
+
     // ---- task forces ------------------------------------------------------------------------------------
 
     public static List<SpecialForcesIntel> playerTaskForces() {

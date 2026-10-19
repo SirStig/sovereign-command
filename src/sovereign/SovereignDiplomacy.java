@@ -211,7 +211,7 @@ public final class SovereignDiplomacy {
         a.balance = 0.40f * a.military + 0.20f * a.economy + 0.20f * a.battles + 0.12f * a.land + 0.08f * a.weariness;
 
         a.step = Math.max(10000, Math.round(a.ourMonthly * 0.1f / 10000f) * 10000);
-        a.fee = Math.max(5000, Math.round(a.ourMonthly * 0.02f / 1000f) * 1000);
+        a.fee = Math.max(5000, Math.round(a.ourMonthly * SovereignSettings.envoyPercent() / 100f / 1000f) * 1000);
 
         if (a.balance < 0.5f) {
             float d = clamp((0.5f - a.balance) / 0.35f, 0f, 1f);
@@ -301,7 +301,7 @@ public final class SovereignDiplomacy {
     public static int giftCost(FactionAPI f) {
         Set<String> side = new HashSet<String>();
         side.add(f.getId());
-        return Math.max(10000, Math.round(0.12f * monthly(side) / 500f) * 500);
+        return Math.max(10000, Math.round(SovereignSettings.giftPercent() / 100f * monthly(side) / 500f) * 500);
     }
 
     public static float giftGain(FactionAPI f) {

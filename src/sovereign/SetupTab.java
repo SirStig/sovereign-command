@@ -36,11 +36,11 @@ final class SetupTab extends TabView {
             tm.addPara("There are a few optional extras. The next pages explain them so you can pick.", Theme.text(), 12f);
         } else if (page == 1) {
             tm.addTitle("Always here", Theme.bright());
-            item(tm, "Factions", "Relations, wars, alliances and every colony a faction holds. "
-                    + "You can form or leave an alliance from here.");
-            item(tm, "Operations", "Request invasions, raids and blockades. The costs and the fleet pool are Nexerelin's.");
-            item(tm, "Task forces", "Give your own task forces their orders.");
-            item(tm, "Colonies", "Your colonies at a glance. Reinforce their defenses or open a free port.");
+            item(tm, "Factions", "Relations, wars, alliances and every colony a faction holds. Your own colonies are "
+                    + "here too: reinforce their defenses or open a free port.");
+            item(tm, "Fleets", "Orders for your task forces, new fleet requests with Nexerelin's costs and fleet pool, "
+                    + "and every operation under way.");
+            item(tm, "Log and Settings", "The two buttons at the top right, next to Close.");
         } else if (page == 2) {
             tm.addTitle("Extras", Theme.bright());
             tm.addPara("Each one changes how the game plays. All of them are off until you switch them on.",

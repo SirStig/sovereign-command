@@ -13,9 +13,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+/** What your faction forbids and how it polices its space. One section at a time. */
 final class LawsTab extends TabView {
 
-    private static final String[] RULES = {"Follow the rule", "Always patrolled", "Never patrolled"};
+    private static final String[] RULES = {"Follow the general rule", "Always patrolled", "Never patrolled"};
+
+    private String section = "borders";
+    private boolean fineTuning;
 
     LawsTab(SovereignWindow window) {
         super(window);
@@ -58,59 +62,95 @@ final class LawsTab extends TabView {
 
     @Override
     void build(CustomPanelAPI body, float bw, float bh) {
-        float gap = 8f;
-        float w1 = bw * 0.26f;
-        float w2 = bw * 0.40f;
-        float w3 = bw - w1 - w2 - 2f * gap;
-        FactionAPI player = Global.getSector().getPlayerFaction();
-
-        SovereignWindow.Card contraband = w.card(body, 0f, 0f, w1, bh, "Contraband");
-        for (CommoditySpecAPI spec : goods()) {
-            w.toggleRow(contraband, spec.getName(), "law:ban:" + spec.getId(), player.isIllegal(spec.getId()), null,
-                    "Banned", "Legal");
+        float navW = 190f;
+        SovereignWindow.Card nav = w.card(body, 0f, 0f, navW, bh, "Laws");
+        String[][] sections = {{"borders", "Border patrols"}, {"customs", "Customs"}, {"goods", "Banned goods"},
+                {"systems", "Your systems"}};
+        for (String[] sec : sections) {
+            w.chip(nav.tm, sec[1], "law:go:" + sec[0], sec[0].equals(section), nav.rowWidth(), 26f, 4f, true);
         }
-        w.done(contraband);
+        w.done(nav);
 
-        SovereignWindow.Card borders = w.card(body, w1 + gap, 0f, w2, bh, "Closed borders");
-        w.toggleRow(borders, "Closed borders", "law:borders", SovereignSettings.closedBorders(),
-                "Warships in your space are ordered out. Some leave, some don't.");
-        borders.tm.addPara("Order out", Theme.dim(), 10f);
-        w.toggleRow(borders, "Hostile factions", "law:bar:hostile", SovereignSettings.bars("hostile"), "Factions at war with you");
-        w.toggleRow(borders, "Pirates and Pathers", "law:bar:outlaw", SovereignSettings.bars("outlaw"), "They rarely listen");
-        w.toggleRow(borders, "Poor relations", "law:bar:poor", SovereignSettings.bars("poor"), "Disliked but not hostile");
-        w.toggleRow(borders, "Everyone else", "law:bar:others", SovereignSettings.bars("others"),
-                "Neutral or friendly, but not in your alliance");
-        borders.tm.addPara("Rules", Theme.dim(), 10f);
-        w.choiceRow(borders, "Where", "law:scope",
-                SovereignSettings.scope() == 0 ? "Systems you hold" : "Any system of yours",
-                "Held means every colony there is yours or an ally's.");
-        String[] levels = {"Lax", "Standard", "Strict"};
-        w.choiceRow(borders, "Enforcement", "law:enf", levels[SovereignSettings.enforcement()], "How often fleets obey");
-        w.stepper(borders, "Strong fleets force through at", Math.round(SovereignSettings.forceRatio() * 100f) + "%",
-                "law:force-", "law:force+", true);
-        w.tip(borders.tm, "A fleet this big next to your local defense just comes through, and it costs you relations.");
-        w.stepper(borders, "Relations lost per forced entry", String.valueOf(Math.round(SovereignSettings.relationPenalty() * 100f)),
-                "law:pen-", "law:pen+", true);
-        w.toggleRow(borders, "Forced entry means war", "law:war", SovereignSettings.warOnForcedEntry(), null);
-        w.toggleRow(borders, "Border messages", "law:notices", SovereignSettings.borderNotices(), null);
-        w.done(borders);
+        float x = navW + 8f;
+        float cw = bw - x;
+        if ("customs".equals(section)) {
+            customs(body, x, cw, bh);
+        } else if ("goods".equals(section)) {
+            banned(body, x, cw, bh);
+        } else if ("systems".equals(section)) {
+            systems(body, x, cw, bh);
+        } else {
+            borders(body, x, cw, bh);
+        }
+    }
 
-        SovereignWindow.Card customs = w.card(body, w1 + w2 + 2f * gap, 0f, w3, bh, "Customs");
-        w.toggleRow(customs, "Inspect traders", "law:customs", SovereignSettings.customs(),
-                "Trader cargo is checked against your banned list. Smugglers are harder to catch.");
+    private void borders(CustomPanelAPI body, float x, float cw, float bh) {
+        SovereignWindow.Card c = w.card(body, x, 0f, cw, bh, "Border patrols");
+        w.toggleRow(c, "Turn warships away", "law:borders", SovereignSettings.closedBorders(),
+                "Warships entering your space are told to leave. Some do, some don't.");
+        c.tm.addPara("Who gets turned away", Theme.dim(), 12f);
+        w.toggleRow(c, "Hostile factions", "law:bar:hostile", SovereignSettings.bars("hostile"), "Factions at war with you.");
+        w.toggleRow(c, "Pirates and Pathers", "law:bar:outlaw", SovereignSettings.bars("outlaw"), "They rarely listen.");
+        w.toggleRow(c, "Unfriendly factions", "law:bar:poor", SovereignSettings.bars("poor"),
+                "Not at war, but they don't like you.");
+        w.toggleRow(c, "Everyone else", "law:bar:others", SovereignSettings.bars("others"),
+                "Neutral or friendly factions that aren't in your alliance.");
+        c.tm.addPara("Where and how hard", Theme.dim(), 12f);
+        w.choiceRow(c, "Where", "law:scope",
+                SovereignSettings.scope() == 0 ? "Systems you hold" : "Any system with a colony of yours",
+                "Held means every colony in the system is yours or an ally's.");
+        String[] levels = {"Lax", "Normal", "Strict"};
+        w.choiceRow(c, "Enforcement", "law:enf", levels[SovereignSettings.enforcement()], "How often fleets obey.");
+        w.button(c.tm, fineTuning ? "Hide fine tuning" : "Fine tuning", "law:tune", c.rowWidth(), 24f, 14f, true);
+        if (fineTuning) {
+            w.stepper(c, "Fleets this big get through", Math.round(SovereignSettings.forceRatio() * 100f) + "%",
+                    "law:force-", "law:force+", true);
+            w.tip(c.tm, "Compared with the local defense. A fleet this size isn't stopped, and it costs you relations.");
+            w.stepper(c, "Relations lost when they do", String.valueOf(Math.round(SovereignSettings.relationPenalty() * 100f)),
+                    "law:pen-", "law:pen+", true);
+            w.toggleRow(c, "Breaking through means war", "law:war", SovereignSettings.warOnForcedEntry(), null);
+            w.toggleRow(c, "Show messages", "law:notices", SovereignSettings.borderNotices(),
+                    "Report turned-away and ignored fleets on the campaign map.");
+        }
+        w.done(c);
+    }
+
+    private void customs(CustomPanelAPI body, float x, float cw, float bh) {
+        SovereignWindow.Card c = w.card(body, x, 0f, cw, bh, "Customs");
+        w.toggleRow(c, "Check trader cargo", "law:customs", SovereignSettings.customs(),
+                "Traders in your space are checked against your banned goods. Smugglers are harder to catch.");
         String[] penalties = {"Turn back", "Fine", "Seize cargo"};
-        w.choiceRow(customs, "Penalty", "law:penalty", penalties[SovereignSettings.customsPenalty()],
-                "A fine takes half the banned cargo, a seizure takes all of it. You get paid and they like you a bit less.");
-        customs.tm.addPara("Your systems", Theme.dim(), 12f);
+        w.choiceRow(c, "When they find something", "law:penalty", penalties[SovereignSettings.customsPenalty()],
+                "A fine takes half the banned cargo and a seizure takes all of it. You get paid either way, "
+                        + "and the faction likes you a bit less.");
+        String[] levels = {"Lax", "Normal", "Strict"};
+        w.choiceRow(c, "Enforcement", "law:enf", levels[SovereignSettings.enforcement()],
+                "Shared with border patrols. Higher means more traders get caught.");
+        w.done(c);
+    }
+
+    private void banned(CustomPanelAPI body, float x, float cw, float bh) {
+        SovereignWindow.Card c = w.card(body, x, 0f, cw, bh, "Banned goods");
+        FactionAPI player = Global.getSector().getPlayerFaction();
+        c.tm.addPara("Banned goods are illegal in all your colonies, and customs looks for them.", Theme.dim(), 6f);
+        for (CommoditySpecAPI spec : goods()) {
+            w.toggleRow(c, spec.getName(), "law:ban:" + spec.getId(), player.isIllegal(spec.getId()), null, "Banned", "Legal");
+        }
+        w.done(c);
+    }
+
+    private void systems(CustomPanelAPI body, float x, float cw, float bh) {
+        SovereignWindow.Card c = w.card(body, x, 0f, cw, bh, "Your systems");
+        c.tm.addPara("Override the general patrol rule for one system.", Theme.dim(), 6f);
         List<StarSystemAPI> systems = yourSystems();
         if (systems.isEmpty()) {
-            customs.tm.addPara("None yet", Theme.dim(), 4f);
+            w.empty(c.tm, "You have no colonies yet", null);
         }
         for (StarSystemAPI system : systems) {
-            w.choiceRow(customs, system.getName().replace(" Star System", ""), "law:sys:" + system.getId(),
+            w.choiceRow(c, system.getName().replace(" Star System", ""), "law:sys:" + system.getId(),
                     RULES[SovereignSettings.systemRule(system.getId())], null);
         }
-        w.done(customs);
+        w.done(c);
     }
 
     @Override
@@ -120,7 +160,11 @@ final class LawsTab extends TabView {
         }
         String k = id.substring(4);
         FactionAPI player = Global.getSector().getPlayerFaction();
-        if (k.startsWith("ban:")) {
+        if (k.startsWith("go:")) {
+            section = k.substring(3);
+        } else if ("tune".equals(k)) {
+            fineTuning = !fineTuning;
+        } else if (k.startsWith("ban:")) {
             String commodity = k.substring(4);
             if (player.isIllegal(commodity)) {
                 player.makeCommodityLegal(commodity);

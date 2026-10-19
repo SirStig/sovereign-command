@@ -172,6 +172,24 @@ public final class SovereignSettings {
         map().put("setup_done", done);
     }
 
+    // gift price as a share of the receiving faction's monthly income
+    public static int giftPercent() {
+        return Math.round(number("giftPct", 12f));
+    }
+
+    public static void setGiftPercent(int value) {
+        map().put("giftPct", (float) Math.max(2, Math.min(40, value)));
+    }
+
+    // envoy fee as a share of your own monthly income
+    public static int envoyPercent() {
+        return Math.round(number("envoyPct", 2f));
+    }
+
+    public static void setEnvoyPercent(int value) {
+        map().put("envoyPct", (float) Math.max(0, Math.min(10, value)));
+    }
+
     public static void reset() {
         map().clear();
     }

@@ -30,7 +30,7 @@ import java.util.Set;
 public class SovereignWindow implements CustomVisualDialogDelegate {
 
     enum TabId {
-        FACTIONS("Factions"), OPERATIONS("Operations"), FORCES("Task forces"), COLONIES("Colonies"), LAWS("Laws"), LOG("Log"), SETTINGS("Settings");
+        FACTIONS("Factions"), FLEETS("Fleets"), LAWS("Laws"), LOG("Log"), SETTINGS("Settings");
 
         final String title;
 
@@ -80,6 +80,9 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
     private final Set<String> queue = new LinkedHashSet<String>();
     private final RootPlugin rootPlugin = new RootPlugin();
     private final SetupTab setup;
+    private final FleetsTab fleets;
+    private PickerView picker;
+    private TabId previous = TabId.FACTIONS;
 
     final float width;
     final float height;
@@ -109,9 +112,8 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         this.height = windowHeight();
         FactionsTab factions = new FactionsTab(this, focus);
         tabs.put(TabId.FACTIONS, factions);
-        tabs.put(TabId.OPERATIONS, new OperationsTab(this));
-        tabs.put(TabId.FORCES, new ForcesTab(this));
-        tabs.put(TabId.COLONIES, new ColoniesTab(this));
+        fleets = new FleetsTab(this);
+        tabs.put(TabId.FLEETS, fleets);
         tabs.put(TabId.LAWS, new LawsTab(this));
         tabs.put(TabId.LOG, new LogTab(this));
         tabs.put(TabId.SETTINGS, new SettingsTab(this));
@@ -190,6 +192,21 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
             }
             if (id.startsWith("tab:")) {
                 current = TabId.valueOf(id.substring(4));
+                picker = null;
+                dirty = true;
+                return;
+            }
+            if (id.startsWith("menu:")) {
+                TabId target = TabId.valueOf(id.substring(5));
+                if (current == target) {
+                    current = previous;
+                } else {
+                    if (current != TabId.LOG && current != TabId.SETTINGS) {
+                        previous = current;
+                    }
+                    current = target;
+                }
+                picker = null;
                 dirty = true;
                 return;
             }
@@ -206,6 +223,9 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
     private List<TabId> visibleTabs() {
         List<TabId> list = new ArrayList<TabId>();
         for (TabId id : TabId.values()) {
+            if (id == TabId.LOG || id == TabId.SETTINGS) {
+                continue;
+            }
             if (id != TabId.LAWS || SovereignSettings.laws()) {
                 list.add(id);
             }
@@ -227,10 +247,31 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         if (inSetup()) {
             return setup;
         }
-        if (!visibleTabs().contains(current)) {
+        if (picker != null) {
+            return picker;
+        }
+        if (current != TabId.LOG && current != TabId.SETTINGS && !visibleTabs().contains(current)) {
             current = TabId.FACTIONS;
         }
         return tabs.get(current);
+    }
+
+    FleetsTab fleets() {
+        return fleets;
+    }
+
+    void openPicker(PickerView view) {
+        picker = view;
+        dirty = true;
+    }
+
+    void closePicker() {
+        picker = null;
+        dirty = true;
+    }
+
+    boolean picking() {
+        return picker != null;
     }
 
     void show(TabId id) {
@@ -313,6 +354,16 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         TooltipMakerAPI close = content.createUIElement(90f, 26f, false);
         button(close, "Close", "close", 90f, 24f, 0f, true);
         content.addUIElement(close).inTR(PAD, PAD + 4f);
+        float menuX = PAD + 98f;
+        if (!inSetup()) {
+            TabId[] menus = {TabId.SETTINGS, TabId.LOG};
+            for (TabId m : menus) {
+                TooltipMakerAPI mt = content.createUIElement(84f, 26f, false);
+                chip(mt, m.title, "menu:" + m.name(), current == m, 84f, 24f, 0f, true);
+                content.addUIElement(mt).inTR(menuX, PAD + 4f);
+                menuX += 90f;
+            }
+        }
 
         float credits = 0f;
         if (Global.getSector().getPlayerFleet() != null) {
@@ -321,7 +372,7 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         TooltipMakerAPI money = content.createUIElement(240f, 24f, false);
         LabelAPI label = money.addPara(Misc.getDGSCredits(credits), Theme.hl(), 6f);
         label.setAlignment(Alignment.RMID);
-        content.addUIElement(money).inTR(PAD + 100f, PAD + 6f);
+        content.addUIElement(money).inTR(menuX + 8f, PAD + 6f);
     }
 
     private void buildTabStrip() {
@@ -462,6 +513,19 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         c.tm.addCustom(row, 4f);
     }
 
+    void chipRow(Card c, String[] labels, String[] ids, String active) {
+        float rw = c.rowWidth();
+        float gap = 4f;
+        float cw = (rw - gap * (ids.length - 1)) / ids.length;
+        CustomPanelAPI row = c.panel.createCustomPanel(rw, 28f, new Box(this));
+        for (int i = 0; i < ids.length; i++) {
+            TooltipMakerAPI tm = row.createUIElement(cw, 26f, false);
+            chip(tm, labels[i], ids[i], ids[i].equals(active), cw, 24f, 0f, true);
+            row.addUIElement(tm).inTL(i * (cw + gap), 0f);
+        }
+        c.tm.addCustom(row, 6f);
+    }
+
     void buttonPair(Card c, String textA, String idA, String textB, String idB, boolean enabledB) {
         float rw = c.rowWidth();
         float half = (rw - 6f) / 2f;
@@ -567,6 +631,11 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
                     }
                     dirty = true;
                     continue;
+                }
+                if (key == Keyboard.KEY_ESCAPE && picker != null) {
+                    event.consume();
+                    closePicker();
+                    return;
                 }
                 if (key == Keyboard.KEY_ESCAPE || key == SovereignSettings.hotkey()) {
                     event.consume();

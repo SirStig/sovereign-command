@@ -4,6 +4,7 @@ import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.CampaignFleetAPI;
 import com.fs.starfarer.api.campaign.InteractionDialogAPI;
 import com.fs.starfarer.api.campaign.InteractionDialogPlugin;
+import com.fs.starfarer.api.campaign.SectorEntityToken;
 import com.fs.starfarer.api.campaign.StarSystemAPI;
 import com.fs.starfarer.api.campaign.rules.MemoryAPI;
 import com.fs.starfarer.api.combat.EngagementResultAPI;
@@ -40,7 +41,12 @@ public class SovereignDialog implements InteractionDialogPlugin {
         }
         CampaignFleetAPI player = Global.getSector().getPlayerFleet();
         if (player != null) {
-            Global.getSector().getCampaignUI().showInteractionDialog(new SovereignDialog(system), player);
+            SectorEntityToken target = null;
+            if (SovereignTabs.current() != null) {
+                target = SovereignTabs.current().preferredTarget(player);
+            }
+            Global.getSector().getCampaignUI().showInteractionDialog(new SovereignDialog(system),
+                    target == null ? player : target);
         }
     }
 

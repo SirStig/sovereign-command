@@ -81,10 +81,11 @@ final class PickerView extends TabView {
             }
         });
         for (MarketAPI m : shown) {
-            List<MarketAPI> group = groups.get(m.getFactionId());
+            String key = m.isPlanetConditionMarketOnly() ? "unclaimed" : m.getFactionId();
+            List<MarketAPI> group = groups.get(key);
             if (group == null) {
                 group = new ArrayList<MarketAPI>();
-                groups.put(m.getFactionId(), group);
+                groups.put(key, group);
             }
             group.add(m);
         }
@@ -96,17 +97,20 @@ final class PickerView extends TabView {
         }
         for (List<MarketAPI> group : groups.values()) {
             FactionAPI f = group.get(0).getFaction();
-            list.tm.addPara(f.getDisplayName(), f.getBaseUIColor(), 10f);
+            boolean unclaimed = group.get(0).isPlanetConditionMarketOnly();
+            list.tm.addPara(unclaimed ? "Unclaimed planets" : f.getDisplayName(),
+                    unclaimed ? Theme.dim() : f.getBaseUIColor(), 10f);
             for (MarketAPI m : group) {
                 w.listRow(list, "pk:" + m.getId(), SovereignKnowledge.nameOf(m), SovereignKnowledge.systemName(m),
-                        "Size " + SovereignKnowledge.sizeOf(m), Theme.text(), m.getId().equals(highlighted),
+                        m.isPlanetConditionMarketOnly() ? "Unclaimed" : "Size " + SovereignKnowledge.sizeOf(m),
+                        Theme.text(), m.getId().equals(highlighted),
                         f.getBaseUIColor(), f.getDarkUIColor());
             }
         }
         w.done(list);
 
         SovereignWindow.Card detail = w.card(body, leftW + 8f, 0f, bw - leftW - 8f, bh, "Colony");
-        MarketAPI m = highlighted == null ? null : Global.getSector().getEconomy().getMarket(highlighted);
+        MarketAPI m = find(highlighted);
         if (m == null) {
             w.empty(detail.tm, "Nothing selected", null);
         } else {
@@ -114,6 +118,15 @@ final class PickerView extends TabView {
         }
         w.buttonPair(detail, "Cancel", "pk_cancel", "Select", "pk_ok", m != null);
         w.done(detail);
+    }
+
+    private MarketAPI find(String id) {
+        for (MarketAPI m : options) {
+            if (m.getId().equals(id)) {
+                return m;
+            }
+        }
+        return null;
     }
 
     private boolean containsId(List<MarketAPI> list, String id) {
@@ -136,7 +149,7 @@ final class PickerView extends TabView {
             return true;
         }
         if ("pk_ok".equals(id)) {
-            MarketAPI m = highlighted == null ? null : Global.getSector().getEconomy().getMarket(highlighted);
+            MarketAPI m = find(highlighted);
             w.closePicker();
             if (m != null) {
                 listener.picked(m);

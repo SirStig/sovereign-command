@@ -33,6 +33,10 @@ public final class SovereignState {
     private SovereignState() {
     }
 
+    public static boolean indevo() {
+        return Global.getSettings().getModManager().isModEnabled("IndEvo");
+    }
+
     public static Map<String, Object> data() {
         return Global.getSector().getPersistentData();
     }

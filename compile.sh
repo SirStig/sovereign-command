@@ -3,6 +3,9 @@ set -e
 cd "$(dirname "$0")"
 ROOT="${STARSECTOR:-$HOME/Documents/starsector}"
 CP="$ROOT/starfarer.api.jar:$ROOT/lwjgl.jar:$ROOT/lwjgl_util.jar:$ROOT/json.jar:$ROOT/log4j-1.2.9.jar:$ROOT/mods/LazyLib/jars/LazyLib.jar:$ROOT/mods/MagicLib/jars/MagicLib.jar:$ROOT/mods/Nexerelin/jars/ExerelinCore.jar"
+INDEVO=$(ls "$ROOT"/mods/Industrial.Evolution*/jars/IndEvo.jar 2>/dev/null | head -1)
+[ -n "$INDEVO" ] || { echo "Industrial.Evolution not found in $ROOT/mods; it is needed to compile"; exit 1; }
+CP="$CP:$INDEVO"
 rm -rf build
 mkdir -p build jars
 find src -name '*.java' > build/sources.txt

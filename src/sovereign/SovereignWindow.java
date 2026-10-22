@@ -30,7 +30,7 @@ import java.util.Set;
 public class SovereignWindow implements CustomVisualDialogDelegate {
 
     enum TabId {
-        FACTIONS("Factions"), FLEETS("Fleets"), LAWS("Laws"), LOG("Log"), SETTINGS("Settings");
+        FACTIONS("Factions"), FLEETS("Fleets"), LAWS("Laws"), EXTENSION("Extra"), LOG("Log"), SETTINGS("Settings");
 
         final String title;
 
@@ -115,6 +115,9 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         fleets = new FleetsTab(this);
         tabs.put(TabId.FLEETS, fleets);
         tabs.put(TabId.LAWS, new LawsTab(this));
+        if (SovereignTabs.current() != null) {
+            tabs.put(TabId.EXTENSION, new ExternalTabView(this, SovereignTabs.current()));
+        }
         tabs.put(TabId.LOG, new LogTab(this));
         tabs.put(TabId.SETTINGS, new SettingsTab(this));
         setup = new SetupTab(this);
@@ -147,6 +150,10 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
                     b.button.setChecked(b.expected);
                     queue.add(b.id);
                 }
+            }
+            TabView shown = tab();
+            if (shown instanceof ExternalTabView && ((ExternalTabView) shown).tick()) {
+                dirty = true;
             }
             if (!queue.isEmpty()) {
                 List<String> ids = new ArrayList<String>(queue);
@@ -220,10 +227,20 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         }
     }
 
+    private String label(TabId id) {
+        if (id == TabId.EXTENSION && SovereignTabs.current() != null) {
+            return SovereignTabs.current().title();
+        }
+        return id.title;
+    }
+
     private List<TabId> visibleTabs() {
         List<TabId> list = new ArrayList<TabId>();
         for (TabId id : TabId.values()) {
             if (id == TabId.LOG || id == TabId.SETTINGS) {
+                continue;
+            }
+            if (id == TabId.EXTENSION && SovereignTabs.current() == null) {
                 continue;
             }
             if (id != TabId.LAWS || SovereignSettings.laws()) {
@@ -381,7 +398,7 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
         for (int i = 0; i < ids.size(); i++) {
             TooltipMakerAPI tm = content.createUIElement(tabW, TABS, false);
             boolean active = ids.get(i) == current;
-            ButtonAPI b = tm.addAreaCheckbox(ids.get(i).title, "tab:" + ids.get(i).name(),
+            ButtonAPI b = tm.addAreaCheckbox(label(ids.get(i)), "tab:" + ids.get(i).name(),
                     Theme.base(), Theme.dark(), Theme.bright(), tabW, TABS - 2f, 0f);
             b.setChecked(active);
             bound.add(new Bound(b, "tab:" + ids.get(i).name(), active));
@@ -636,6 +653,15 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
                     event.consume();
                     closePicker();
                     return;
+                }
+                if (key == Keyboard.KEY_RETURN || key == Keyboard.KEY_NUMPADENTER) {
+                    TabView shown = tab();
+                    if (shown instanceof ExternalTabView) {
+                        event.consume();
+                        ((ExternalTabView) shown).enter();
+                        dirty = true;
+                        return;
+                    }
                 }
                 if (key == Keyboard.KEY_ESCAPE || key == SovereignSettings.hotkey()) {
                     event.consume();

@@ -32,6 +32,7 @@ final class FleetsTab extends TabView {
     private final List<SpecialForcesIntel> forces = new ArrayList<SpecialForcesIntel>();
     private final List<OffensiveFleetIntel> mine = new ArrayList<OffensiveFleetIntel>();
     private final List<OffensiveFleetIntel> incoming = new ArrayList<OffensiveFleetIntel>();
+    private final List<IndEvoLink.Detachment> detachments = new ArrayList<IndEvoLink.Detachment>();
 
     FleetsTab(SovereignWindow window) {
         super(window);
@@ -71,6 +72,10 @@ final class FleetsTab extends TabView {
         forces.addAll(SovereignActions.playerTaskForces());
         mine.clear();
         incoming.clear();
+        detachments.clear();
+        if (SovereignState.indevo()) {
+            detachments.addAll(IndEvoLink.detachments());
+        }
         for (IntelInfoPlugin plugin : Global.getSector().getIntelManager().getIntel(OffensiveFleetIntel.class)) {
             OffensiveFleetIntel intel = (OffensiveFleetIntel) plugin;
             if (intel.isEnding() || intel.isEnded()) {
@@ -93,6 +98,8 @@ final class FleetsTab extends TabView {
         float rw = bw - x;
         if (sel.startsWith("f:tf:")) {
             buildForce(body, x, rw, bh);
+        } else if (sel.startsWith("f:dt:")) {
+            buildDetachment(body, x, rw, bh);
         } else if (sel.startsWith("f:op:") || sel.startsWith("f:in:")) {
             buildOperation(body, x, rw, bh);
         } else {
@@ -113,6 +120,17 @@ final class FleetsTab extends TabView {
         for (int i = 0; i < forces.size(); i++) {
             w.listRow(c, "f:tf:" + i, SovereignActions.taskForceName(forces.get(i)), null, null, null,
                     sel.equals("f:tf:" + i), Theme.base(), Theme.dark());
+        }
+        if (SovereignState.indevo()) {
+            tm.addPara("Detachments", Theme.dim(), 12f);
+            if (detachments.isEmpty()) {
+                tm.addPara("None split off", Theme.dim(), 2f);
+            }
+            for (int i = 0; i < detachments.size(); i++) {
+                IndEvoLink.Detachment d = detachments.get(i);
+                w.listRow(c, "f:dt:" + i, d.fleet.getName(), null, IndEvoLink.status(d.fleet), Theme.dim(),
+                        sel.equals("f:dt:" + i), Theme.base(), Theme.dark());
+            }
         }
         tm.addPara("Your operations", Theme.dim(), 12f);
         if (mine.isEmpty()) {
@@ -144,6 +162,9 @@ final class FleetsTab extends TabView {
     // ---- new request ------------------------------------------------------------------------------------
 
     private List<MarketAPI> validTargets(FleetType t) {
+        if (t == FleetType.COLONY) {
+            return FleetRequest.colonyTargets();
+        }
         List<MarketAPI> out = new ArrayList<MarketAPI>();
         for (MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
             if (m.getPrimaryEntity() != null && FleetRequest.targetProblem(t, m) == null) {
@@ -180,14 +201,15 @@ final class FleetsTab extends TabView {
             w.button(tm, "Choose colony", "src:pick", rw, 22f, 4f, sources.size() > 1);
         }
 
-        tm.addPara("Target", Theme.dim(), 12f);
+        tm.addPara(t == FleetType.COLONY ? "Planet" : "Target", Theme.dim(), 12f);
         String problem = FleetRequest.targetProblem(t, target);
         if (target == null) {
             tm.addPara("None chosen", Theme.dim(), 2f);
         } else {
             FactionAPI tf = target.getFaction();
             tm.addPara(SovereignKnowledge.nameOf(target) + ", " + SovereignKnowledge.systemName(target)
-                    + (tf == null ? "" : " (" + tf.getDisplayName() + ")"), tf == null ? Theme.text() : tf.getBaseUIColor(), 2f);
+                    + (tf == null || t == FleetType.COLONY ? "" : " (" + tf.getDisplayName() + ")"),
+                    tf == null || t == FleetType.COLONY ? Theme.text() : tf.getBaseUIColor(), 2f);
             if (problem != null) {
                 tm.addPara(problem, Theme.bad(), 2f);
             }
@@ -285,6 +307,34 @@ final class FleetsTab extends TabView {
         w.done(c);
     }
 
+    // ---- detachment -------------------------------------------------------------------------------------
+
+    private void buildDetachment(CustomPanelAPI body, float x, float cw, float ch) {
+        int i = Integer.parseInt(sel.substring(5));
+        SovereignWindow.Card c = w.card(body, x, 0f, cw, ch, "Detachment");
+        TooltipMakerAPI tm = c.tm;
+        if (i < 0 || i >= detachments.size()) {
+            w.empty(tm, "Nothing selected", null);
+            w.done(c);
+            return;
+        }
+        CampaignFleetAPI fleet = detachments.get(i).fleet;
+        float rw = c.rowWidth();
+        boolean dormant = IndEvoLink.dormant(fleet);
+        tm.addPara(fleet.getName(), Theme.bright(), 6f);
+        String where = fleet.getContainingLocation() == null ? "Unknown"
+                : fleet.getContainingLocation().isHyperspace() ? "Hyperspace" : fleet.getContainingLocation().getName();
+        w.facts(tm, rw, new String[]{"Status", "Fleet points", "Location"},
+                new String[]{IndEvoLink.status(fleet), String.valueOf(fleet.getFleetPoints()), where}, null, 8f);
+        float half = (rw - 6f) / 2f;
+        w.button(tm, "Hold position", "d:hold", half, 24f, 12f, !dormant);
+        w.button(tm, "Follow me", "d:follow", half, 24f, 6f, !dormant);
+        w.button(tm, "Go dark", "d:hide", half, 24f, 6f, !dormant);
+        w.button(tm, "Recall and merge", "d:recall", half, 24f, 6f, !dormant);
+        w.tip(tm, "Heads back to your fleet and joins it");
+        w.done(c);
+    }
+
     // ---- operation --------------------------------------------------------------------------------------
 
     private OffensiveFleetIntel operation() {
@@ -332,12 +382,22 @@ final class FleetsTab extends TabView {
     boolean handle(String id) {
         boolean wasArmed = armed;
         armed = false;
-        if ("f:new".equals(id) || id.startsWith("f:tf:") || id.startsWith("f:op:") || id.startsWith("f:in:")) {
+        if ("f:new".equals(id) || id.startsWith("f:tf:") || id.startsWith("f:op:") || id.startsWith("f:in:")
+                || id.startsWith("f:dt:")) {
             sel = id;
             return true;
         }
         if (id.startsWith("type:")) {
+            FleetType before = type();
             type = FleetType.valueOf(id.substring(5));
+            if (type == FleetType.COLONY) {
+                fp = 150;
+            } else if (before == FleetType.COLONY) {
+                fp = 200;
+            }
+            if (w.target() != null && FleetRequest.targetProblem(type, w.target()) != null) {
+                w.targetId = null;
+            }
             return true;
         }
         if ("src:pick".equals(id)) {
@@ -355,7 +415,7 @@ final class FleetsTab extends TabView {
             String title;
             if ("new".equals(sel)) {
                 options = validTargets(type());
-                title = "Target for a " + FleetRequest.label(type()).toLowerCase();
+                title = type() == FleetType.COLONY ? "Planet to settle" : "Target for a " + FleetRequest.label(type()).toLowerCase();
             } else {
                 options = new ArrayList<MarketAPI>();
                 for (MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
@@ -415,6 +475,14 @@ final class FleetsTab extends TabView {
                         Global.getSector().getCampaignUI().showCoreUITab(CoreUITabId.INTEL, intel);
                     }
                 });
+            }
+            return true;
+        }
+        if (id.startsWith("d:") && sel.startsWith("f:dt:")) {
+            int i = Integer.parseInt(sel.substring(5));
+            if (i >= 0 && i < detachments.size()) {
+                SovereignActions.Outcome out = IndEvoLink.order(detachments.get(i).fleet, id.substring(2));
+                w.say(out.text, out.ok);
             }
             return true;
         }

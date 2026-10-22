@@ -22,7 +22,7 @@ final class SetupTab extends TabView {
     @Override
     void build(CustomPanelAPI body, float bw, float bh) {
         float cw = Math.min(680f, bw - 40f);
-        float[] heights = {250f, 330f, 430f, 230f};
+        float[] heights = {250f, 370f, 430f, 230f};
         float ch = Math.min(bh - 10f, heights[page]);
         SovereignWindow.Card c = w.card(body, (bw - cw) / 2f, 8f, cw, ch, null);
         TooltipMakerAPI tm = c.tm;
@@ -39,8 +39,9 @@ final class SetupTab extends TabView {
             tm.addTitle("Always here", Theme.bright());
             item(tm, "Factions", "Relations, wars, alliances and every colony a faction holds. Your own colonies are "
                     + "here too: reinforce their defenses or open a free port.");
-            item(tm, "Fleets", "Orders for your task forces, new fleet requests with Nexerelin's costs and fleet pool, "
-                    + "and every operation under way.");
+            item(tm, "Fleets", "Orders for your task forces, new fleet requests (including settling new colonies) "
+                    + "with Nexerelin's costs and fleet pool, and every operation under way. "
+                    + "If Industrial.Evolution is installed, its detachments are here too.");
             item(tm, "Log and Settings", "The two buttons at the top right, next to Close.");
         } else if (page == 2) {
             tm.addTitle("Extras", Theme.bright());

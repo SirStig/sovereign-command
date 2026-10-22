@@ -649,6 +649,11 @@ public class SovereignWindow implements CustomVisualDialogDelegate {
                     dirty = true;
                     continue;
                 }
+                if (key == Keyboard.KEY_ESCAPE && tab() instanceof ExternalTabView && ((ExternalTabView) tab()).back()) {
+                    event.consume();
+                    dirty = true;
+                    return;
+                }
                 if (key == Keyboard.KEY_ESCAPE && picker != null) {
                     event.consume();
                     closePicker();

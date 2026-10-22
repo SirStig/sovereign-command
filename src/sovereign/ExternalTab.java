@@ -17,6 +17,9 @@ public interface ExternalTab {
     /** Runs every frame while the page is open. Return true to have the window redraw it. */
     boolean advance();
 
+    /** Esc was pressed. Return true if the page used it (to close something of its own) so the window stays open. */
+    boolean back();
+
     /** Enter was pressed while the page is open. */
     void enter();
 

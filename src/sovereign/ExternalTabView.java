@@ -26,6 +26,10 @@ final class ExternalTabView extends TabView {
         return page.advance();
     }
 
+    boolean back() {
+        return page.back();
+    }
+
     void enter() {
         page.enter();
     }
